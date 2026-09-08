@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>4K Video Chatbot</title>
+<style>
+body{font-family:system-ui,Arial;margin:0;background:#f5f6f8;color:#17181a}.wrap{max-width:900px;margin:40px auto;padding:0 18px}
+.card{background:#fff;border:1px solid #ddd;border-radius:18px;padding:22px;margin-top:18px}
+.sub,.small{color:#666}.chat{background:#f0f1f3;border-radius:14px;padding:14px;margin-bottom:18px}
+label{display:block;font-weight:650;margin:12px 0 7px}input,select{width:100%;box-sizing:border-box;padding:11px;border:1px solid #ccc;border-radius:10px;background:#fff}
+button{border:0;border-radius:11px;padding:12px 18px;cursor:pointer;background:#111;color:#fff;margin-top:18px}.row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.progress{height:10px;background:#e4e5e8;border-radius:20px;overflow:hidden;margin-top:15px}.bar{height:100%;width:0;background:#111;transition:width .3s}
+.hidden{display:none}a{color:inherit}.download{display:inline-block;margin-top:16px;padding:12px 16px;border-radius:11px;background:#111;color:#fff;text-decoration:none}
+@media(max-width:650px){.row{grid-template-columns:1fr 1fr}}
+</style></head>
+<body><div class="wrap">
+<h1>🎬 4K Video Chatbot</h1><div class="sub">Nâng video lên 4K và xóa watermark cố định.</div>
+<div class="card"><div class="chat"><b>Bot:</b> Tải video lên. Bạn có thể tải thêm ảnh mẫu watermark để bot tự tìm vùng cần xóa.</div>
+<label>Video</label><input id="video" type="file" accept="video/*">
+<label>Ảnh mẫu watermark (không bắt buộc)</label><input id="wm" type="file" accept="image/*">
+<div class="small">Nên dùng crop nhỏ có chứa watermark.</div>
+<label>Chế độ</label><select id="mode" onchange="toggle()"><option value="auto">Tự động</option><option value="manual">Thủ công</option></select>
+<div id="manual" class="row hidden">
+<div><label>X %</label><input id="x" type="number" value="82"></div><div><label>Y %</label><input id="y" type="number" value="82"></div>
+<div><label>Rộng %</label><input id="ww" type="number" value="16"></div><div><label>Cao %</label><input id="hh" type="number" value="16"></div></div>
+<button id="go" onclick="start()">Bắt đầu xử lý</button><div class="progress"><div id="bar" class="bar"></div></div>
+<div id="status" class="small" style="margin-top:10px"></div><a id="download" class="download hidden" href="#">⬇ Tải video 4K</a>
+</div>
+<div class="card small"><b>Lưu ý:</b> 4K ở đây là upscale; chi tiết đã mất từ video gốc không thể khôi phục hoàn toàn. Chỉ xóa watermark khi bạn có quyền chỉnh sửa video.</div>
+</div>
+<script>
+function toggle(){manual.classList.toggle('hidden',mode.value!=='manual')}
+async function start(){
+ const v=video.files[0]; if(!v)return alert('Hãy chọn video.');
+ const fd=new FormData();fd.append('video',v);if(wm.files[0])fd.append('watermark',wm.files[0]);
+ fd.append('mode',mode.value);['x','y','ww','hh'].forEach(k=>fd.append(k,document.getElementById(k).value));
+ go.disabled=true;status.textContent='Đang tạo job...';download.classList.add('hidden');
+ const r=await fetch('/api/jobs',{method:'POST',body:fd});if(!r.ok){status.textContent=await r.text();go.disabled=false;return}
+ poll((await r.json()).job_id)
+}
+async function poll(id){const j=await (await fetch('/api/jobs/'+id)).json();bar.style.width=(j.progress||0)+'%';status.textContent=j.message||j.status;
+ if(j.status==='done'){download.href=j.download;download.classList.remove('hidden');go.disabled=false;return}
+ if(j.status==='error'){go.disabled=false;return} setTimeout(()=>poll(id),1000)}
+</script></body></html>
